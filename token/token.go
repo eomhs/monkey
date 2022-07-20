@@ -28,6 +28,9 @@ const (
 	EQ     = "=="
 	NOT_EQ = "!="
 
+	INCR = "++"
+	DECR = "--"
+
 	LPAREN = "("
 	RPAREN = ")"
 	LBRACE = "{"
