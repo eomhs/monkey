@@ -40,8 +40,9 @@ type Parser struct {
 	curToken  token.Token
 	peekToken token.Token
 
-	prefixParseFns map[token.TokenType]prefixParseFn
-	infixParseFns  map[token.TokenType]infixParseFn
+	prefixParseFns  map[token.TokenType]prefixParseFn
+	infixParseFns   map[token.TokenType]infixParseFn
+	postfixParseFns map[token.TokenType]postfixParseFn
 }
 
 func New(l *lexer.Lexer) *Parser {
@@ -70,6 +71,10 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerInfix(token.LT, p.parseInfixExpression)
 	p.registerInfix(token.GT, p.parseInfixExpression)
 	p.registerInfix(token.LPAREN, p.parseCallExpression)
+
+	p.postfixParseFns = make(map[token.TokenType]postfixParseFn)
+	p.registerPostfix(token.INCR, p.parsePostfixExpression)
+	p.registerPostfix(token.DECR, p.parsePostfixExpression)
 
 	return p
 }
@@ -167,6 +172,11 @@ func (p *Parser) parseExpression(precedence int) ast.Expression {
 	}
 	leftExp := prefix()
 
+	postfix := p.postfixParseFns[p.peekToken.Type]
+	if postfix != nil {
+		leftExp = postfix()
+	}
+
 	for !p.peekTokenIs(token.SEMICOLON) && precedence < p.peekPrecedence() {
 		infix := p.infixParseFns[p.peekToken.Type]
 		if infix == nil {
@@ -221,9 +231,14 @@ func (p *Parser) registerInfix(tokenType token.TokenType, fn infixParseFn) {
 	p.infixParseFns[tokenType] = fn
 }
 
+func (p *Parser) registerPostfix(tokenType token.TokenType, fn postfixParseFn) {
+	p.postfixParseFns[tokenType] = fn
+}
+
 type (
-	prefixParseFn func() ast.Expression
-	infixParseFn  func(ast.Expression) ast.Expression
+	prefixParseFn  func() ast.Expression
+	infixParseFn   func(ast.Expression) ast.Expression
+	postfixParseFn func() ast.Expression
 )
 
 func (p *Parser) parseIdentifier() ast.Expression {
@@ -276,6 +291,22 @@ func (p *Parser) parseInfixExpression(left ast.Expression) ast.Expression {
 	expression.Right = p.parseExpression(precedence)
 
 	return expression
+}
+
+func (p *Parser) parsePostfixExpression() ast.Expression {
+	if p.curTokenIs(token.IDENT) {
+		expression := &ast.PostfixExpression{
+			Token:    p.peekToken,
+			Operator: p.peekToken.Literal,
+			Left:     ast.Identifier{Token: p.curToken, Value: p.curToken.Literal},
+		}
+		p.nextToken()
+		return expression
+	} else {
+		msg := fmt.Sprintf("expected token type to be IDENT, got %s instead", p.curToken.Type)
+		p.errors = append(p.errors, msg)
+	}
+	return nil
 }
 
 func (p *Parser) parseBoolean() ast.Expression {
