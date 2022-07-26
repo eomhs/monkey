@@ -66,6 +66,9 @@ func Eval(node ast.Node, env *object.Environment) object.Object {
 
 		return evalInfixExpression(node.Operator, left, right)
 
+	case *ast.PostfixExpression:
+		return evalPostfixExpression(node, env)
+
 	case *ast.IfExpression:
 		return evalIfExpression(node, env)
 
@@ -167,6 +170,22 @@ func evalInfixExpression(
 		return newError("unknown operator: %s %s %s",
 			left.Type(), operator, right.Type())
 	}
+}
+
+func evalPostfixExpression(node *ast.PostfixExpression, env *object.Environment) object.Object {
+	left := Eval(&node.Left, env)
+	if left.Type() != object.INTEGER_OBJ {
+		return newError("type mismatch: need INTEGER for %s, got %s", node.Operator, left.Type())
+	}
+	leftVal := left.(*object.Integer).Value
+	switch operator := node.Operator; operator {
+	case "++":
+		leftVal++
+	case "--":
+		leftVal--
+	}
+	env.Set(node.Left.Value, &object.Integer{Value: leftVal})
+	return left
 }
 
 func evalBangOperatorExpression(right object.Object) object.Object {

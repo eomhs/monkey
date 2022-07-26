@@ -224,6 +224,10 @@ func TestErrorHandling(t *testing.T) {
 			"foobar",
 			"identifier not found: foobar",
 		},
+		{
+			"let a = true; a++;",
+			"type mismatch: need INTEGER for ++, got BOOLEAN",
+		},
 	}
 
 	for _, tt := range tests {
@@ -310,4 +314,21 @@ func TestClosures(t *testing.T) {
 	`
 
 	testIntegerObject(t, testEval(input), 4)
+}
+
+func TestEvalPostfixExpression(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected int64
+	}{
+		{"let a = 5; a++;", 5},
+		{"let a = 5; let b = a++; a;", 6},
+		{"let a = 5; let b = a--; a;", 4},
+		{"let a = 5; let b = a++ + a++; a;", 7},
+		{"let a = 5; let b = a-- + a--; a;", 3},
+	}
+
+	for _, tt := range tests {
+		testIntegerObject(t, testEval(tt.input), tt.expected)
+	}
 }
